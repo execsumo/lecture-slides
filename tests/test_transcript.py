@@ -18,9 +18,10 @@ def test_language_prefers_manual_and_regional_fallback():
 def test_safe_folder_names(tmp_path):
     path = output_folder(tmp_path, "../../A lecture / with slash", "test123")
     assert path.parent == tmp_path
-    assert path.name.endswith("[test123]")
+    assert path.name == "a-lecture-with-slash-test123"
     assert len(output_folder(tmp_path, "文" * 300, "abc").name.encode()) <= 255
-    assert output_folder(tmp_path, "...").name == "Untitled"
+    assert output_folder(tmp_path, "...").name == "lecture"
+    assert output_folder(tmp_path, "Ignored title", "id", slug="grok-bot-always-on-agents").name == "grok-bot-always-on-agents"
 
 
 def test_json3_timestamped_transcript(tmp_path):
@@ -67,7 +68,7 @@ def test_real_downloader_processing_saves_video_and_captions(monkeypatch, tmp_pa
 
     monkeypatch.setattr(yt_dlp.YoutubeDL, "dl", fake_dl)
     video, output = download("https://example.com/video", tmp_path / "chosen")
-    assert output.name == "100% lecture ⧸ intro [abc123]"
+    assert output.name == "100-lecture-intro-abc123"
     assert output.parent == tmp_path / "chosen"
     assert video.is_file()
     assert (output / "transcript.txt").read_text() == "[00:00:00.000] Welcome\n"
@@ -113,6 +114,7 @@ def test_local_cli_uses_stem_folder(monkeypatch, tmp_path):
         return []
 
     monkeypatch.setattr(lecture_slides, "extract", fake_extract)
+    monkeypatch.setattr(lecture_slides, "build_viewer", lambda output, **kw: output / "index.html")
     monkeypatch.setattr(sys, "argv", ["lecture-slides", str(video), "-o", str(chosen)])
     lecture_slides.main()
-    assert observed["output"] == chosen / "Local lecture"
+    assert observed["output"] == chosen / "local-lecture"

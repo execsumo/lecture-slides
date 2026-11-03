@@ -1,15 +1,22 @@
-"""Native-resolution lecture slide extraction, without OCR or a cloud service."""
+"""Native-resolution lecture slides with a synchronized transcript reader."""
 
 import argparse
 import json
 import math
+import re
 import sys
+import tempfile
+import unicodedata
+from contextlib import ExitStack
 from pathlib import Path
 
 import av
 import cv2
 import numpy as np
 import yt_dlp
+
+from .transcripts import ensure_transcript, write_transcript
+from .viewer import build_viewer
 
 
 CORNERS = {
@@ -119,7 +126,8 @@ def sample_frames(path, interval):
 
 
 def extract(video, output, *, interval=1.0, settle=2.0, change=0.015,
-            stability=0.003, crop=(0, 0, 1, 1), ignored=(), source=None):
+            stability=0.003, crop=(0, 0, 1, 1), ignored=(), source=None,
+            video_retained=True):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     manifest_path = output / "slides.json"
@@ -127,7 +135,8 @@ def extract(video, output, *, interval=1.0, settle=2.0, change=0.015,
         raise ValueError(f"{output} already contains slides; choose a new output directory")
     slides = []
     manifest = {
-        "source": source or str(video), "video": str(video),
+        "source": source or str(video), "video": str(video) if video_retained else None,
+        "video_retained": video_retained,
         "settings": {"interval": interval, "settle": settle, "change": change,
                      "stability": stability, "crop": crop, "ignored": ignored},
         "slides": slides,
@@ -174,11 +183,20 @@ def extract(video, output, *, interval=1.0, settle=2.0, change=0.015,
     return slides
 
 
-def output_folder(parent, title, video_id=None):
-    name = yt_dlp.utils.sanitize_filename(title, restricted=False).strip(" .")
-    name = name.encode("utf-8")[:160].decode("utf-8", errors="ignore").rstrip(" .") or "Untitled"
-    if video_id:
-        name += f" [{yt_dlp.utils.sanitize_filename(video_id, restricted=True)[:50]}]"
+def slug_value(value):
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", value) or len(value) > 100:
+        raise argparse.ArgumentTypeError("slug must be 1–100 lowercase letters/digits separated by hyphens")
+    return value
+
+
+def output_folder(parent, title, video_id=None, slug=None):
+    if slug is not None:
+        name = slug_value(slug)
+    else:
+        ascii_title = unicodedata.normalize("NFKD", title).encode("ascii", errors="ignore").decode()
+        name = re.sub(r"[^a-z0-9]+", "-", ascii_title.lower()).strip("-")[:80].rstrip("-") or "lecture"
+        if video_id:
+            name += "-" + re.sub(r"[^a-zA-Z0-9_-]", "", video_id)[:50]
     return Path(parent).expanduser() / name
 
 
@@ -226,20 +244,20 @@ def save_transcript(info, output, language, automatic):
             raise ValueError("caption track contains no text")
         transcript = {"title": info.get("title"), "language": language,
                       "automatic": automatic, "segments": segments}
-        (output / "transcript.json").write_text(json.dumps(transcript, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        lines = [f"[{timestamp(s['start_seconds']).replace('-', ':')}] {s['text']}" for s in segments]
-        (output / "transcript.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        transcript["provider"] = "youtube"
+        write_transcript(output, transcript)
         print(f"Saved transcript ({language}) to {output}")
     except (ValueError, OSError, TypeError, AttributeError) as error:
         print(f"Warning: could not export transcript: {error}; continuing with slides.", file=sys.stderr)
 
 
-def download(url, directory, cookie_browser=None, language="en", preview=False):
+def download(url, directory, cookie_browser=None, language="en", preview=False,
+             slug=None, media_directory=None):
     options = {
         "format": "bestvideo/best",
         "format_sort": ["res", "fps"],
         "noplaylist": True,
-        "writeinfojson": True,
+        "writeinfojson": False,
         # Subtitle failures must not prevent the video and slides from being saved.
         "ignoreerrors": True,
         "js_runtimes": {"deno": {}, "node": {}},
@@ -250,13 +268,17 @@ def download(url, directory, cookie_browser=None, language="en", preview=False):
         info = downloader.extract_info(url, download=False)
         if not info or info.get("_type") in ("playlist", "multi_video"):
             raise ValueError("could not load a single video; use an individual video URL")
-        output = output_folder(directory, info.get("title") or info["id"], info["id"])
+        output = output_folder(directory, info.get("title") or info["id"], info["id"], slug)
+        metadata_path = output / "lecture.json"
+        if metadata_path.exists() and json.loads(metadata_path.read_text())["id"] != info["id"]:
+            raise ValueError("this slug belongs to another video; choose a different --slug")
         if not preview:
             check_output(output)
         output.mkdir(parents=True, exist_ok=True)
         code, automatic = caption_language(info, language)
+        media = Path(media_directory) if media_directory is not None else output / "video"
         downloader.params.update({
-            "outtmpl": {"default": str(output / "video").replace("%", "%%") + "/%(id)s.%(ext)s"},
+            "outtmpl": {"default": str(media).replace("%", "%%") + "/%(id)s.%(ext)s"},
             "writesubtitles": bool(code), "writeautomaticsub": bool(code),
             "subtitleslangs": [code] if code else [], "subtitlesformat": "json3",
         })
@@ -266,6 +288,9 @@ def download(url, directory, cookie_browser=None, language="en", preview=False):
         path = Path(downloader.prepare_filename(info))
         if not path.is_file():
             raise ValueError("video download failed; see downloader warnings above")
+        metadata = {"id": info["id"], "title": info.get("title"), "source": url,
+                    "width": info.get("width"), "height": info.get("height")}
+        metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         if code:
             save_transcript(info, output, code, automatic)
         else:
@@ -275,8 +300,11 @@ def download(url, directory, cookie_browser=None, language="en", preview=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("source", help="YouTube URL or local video path")
-    parser.add_argument("-o", "--output", type=Path, required=True, help="parent directory; results go in a video-named subfolder")
+    parser.add_argument("source", nargs="?", help="YouTube URL or local video path")
+    parser.add_argument("-o", "--output", type=Path, help="parent directory; results go in a lecture-slug subfolder")
+    parser.add_argument("--slug", type=slug_value, help="human/agent-chosen search-friendly folder name, e.g. grok-bot-always-on-agents")
+    parser.add_argument("--keep-video", action="store_true", help="retain downloaded video; otherwise temporary video is deleted, including on failure")
+    parser.add_argument("--build-viewer", type=Path, metavar="FOLDER", help="build/rebuild index.html for existing slides, without downloading video")
     parser.add_argument("--language", default="en", help="transcript language code, e.g. en, nl, fr (default: en)")
     parser.add_argument("--interval", type=positive, default=1.0, help="seconds between samples (default: 1)")
     parser.add_argument("--settle", type=positive, default=2.0, help="seconds a slide must remain stable (default: 2)")
@@ -289,33 +317,52 @@ def main():
     args = parser.parse_args()
     if args.stability >= args.change:
         parser.error("--stability must be less than --change")
+    if not args.build_viewer and (not args.source or args.output is None):
+        parser.error("provide SOURCE and --output, or use --build-viewer FOLDER")
     try:
-        local = Path(args.source).expanduser()
-        if local.is_file():
-            video = local.resolve()
-            output = output_folder(args.output, video.stem)
-            if not args.preview:
-                check_output(output)
-                print("Note: local input has no YouTube captions; no transcript will be downloaded.", file=sys.stderr)
-        elif args.source.startswith(("https://", "http://")):
-            video, output = download(args.source, args.output, args.cookies_from_browser,
-                                     language=args.language, preview=args.preview)
-        else:
-            raise ValueError("source must be an existing local video or an HTTP(S) URL")
-        if args.preview:
-            output.mkdir(parents=True, exist_ok=True)
-            _, frame = next(sample_frames(video, args.interval))
-            path = output / "preview.png"
-            if not cv2.imwrite(str(path), frame):
-                raise OSError(f"could not write {path}")
-            print(path)
+        if args.build_viewer:
+            output = args.build_viewer.expanduser().resolve()
+            manifest = json.loads((output / "slides.json").read_text(encoding="utf-8"))
+            metadata_path = output / "lecture.json"
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8")) if metadata_path.exists() else {}
+            source = metadata.get("source") or manifest.get("source")
+            ensure_transcript(source, output, args.language)
+            print(build_viewer(output, title=metadata.get("title"), source=source))
             return
-        slides = extract(video, output, interval=args.interval, settle=args.settle,
-                         change=args.change, stability=args.stability, crop=args.crop,
-                         ignored=args.ignore, source=args.source)
-        print(f"Saved {len(slides)} slides to {output}")
-        if not slides:
-            print("No stable slides found. Check --ignore or lower --settle / raise --stability.", file=sys.stderr)
+        with ExitStack() as stack:
+            local = Path(args.source).expanduser()
+            if local.is_file():
+                video = local.resolve()
+                output = output_folder(args.output, video.stem, slug=args.slug)
+                if not args.preview:
+                    check_output(output)
+                    print("Note: local input has no YouTube captions; no transcript will be downloaded.", file=sys.stderr)
+            elif args.source.startswith(("https://", "http://")):
+                media = None if args.keep_video else Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="lecture-slides-")))
+                video, output = download(args.source, args.output, args.cookies_from_browser,
+                                         language=args.language, preview=args.preview,
+                                         slug=args.slug, media_directory=media)
+                ensure_transcript(args.source, output, args.language)
+            else:
+                raise ValueError("source must be an existing local video or an HTTP(S) URL")
+            if args.preview:
+                output.mkdir(parents=True, exist_ok=True)
+                _, frame = next(sample_frames(video, args.interval))
+                path = output / "preview.png"
+                if not cv2.imwrite(str(path), frame):
+                    raise OSError(f"could not write {path}")
+                print(path)
+                return
+            slides = extract(video, output, interval=args.interval, settle=args.settle,
+                             change=args.change, stability=args.stability, crop=args.crop,
+                             ignored=args.ignore, source=args.source,
+                             video_retained=local.is_file() or args.keep_video)
+            metadata_path = output / "lecture.json"
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8")) if metadata_path.exists() else {}
+            print(build_viewer(output, title=metadata.get("title"), source=args.source))
+            print(f"Saved {len(slides)} slides to {output}")
+            if not slides:
+                print("No stable slides found. Check --ignore or lower --settle / raise --stability.", file=sys.stderr)
     except (ValueError, OSError, av.error.FFmpegError, yt_dlp.utils.DownloadError, StopIteration) as error:
         parser.exit(1, f"Error: {error or 'no video frames found'}\n")
 

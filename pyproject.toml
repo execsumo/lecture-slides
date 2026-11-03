@@ -1,7 +1,7 @@
 [project]
 name = "lecture-slides"
-version = "0.1.0"
-description = "Download lectures and extract stable, timestamped slides at native resolution"
+version = "0.2.0"
+description = "Native-resolution lecture slides with a synchronized transcript reader"
 requires-python = ">=3.11"
 dependencies = ["av>=14", "numpy>=2", "opencv-python-headless>=4.10", "yt-dlp[default]>=2025.1.1"]
 

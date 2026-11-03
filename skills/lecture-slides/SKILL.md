@@ -1,90 +1,87 @@
 ---
 name: lecture-slides
-description: Download YouTube lectures and extract native-resolution, timestamped slide screenshots and caption transcripts with lecture-slides. Use when saving lecture slides, processing lecture videos, masking presenter picture-in-picture, downloading captions alongside slides, or inspecting lecture-slides output on a headless device.
-compatibility: Python 3.11+, uv, lecture-slides; Node 22+ or Deno recommended for YouTube downloads.
+description: Download lecture videos, extract timestamped native-resolution slide screenshots, retrieve transcripts with YouTube captions or Supadata fallback, and build a polished synchronized slide/transcript reader. Use when saving lecture slides, handling presenter overlays, naming lecture folders intuitively, or viewing lecture materials remotely.
+compatibility: Python 3.11+, uv, lecture-slides; Node 22+ or Deno recommended for YouTube; optional Supadata API key or MCP for transcript fallback.
 ---
 
 # Lecture slides
 
-Use the installed `lecture-slides` CLI. Do not build a new downloader or transcriber for this task.
+Use the installed `lecture-slides` CLI, not a new downloader or transcriber. Read the repo's `README.md` for full options. This skill lives at `skills/lecture-slides/SKILL.md`; resolve symlinks and go two levels above its directory to find the repo.
 
-## Before running
+## Plan the output
 
-1. Run `command -v lecture-slides` and `lecture-slides --help` to confirm availability and flags.
-2. Use the user's chosen output parent. If none is given, use `~/workspace` and state the destination. Quote URLs and paths; titles contain spaces and punctuation. Do not put downloaded media in the source repository.
-3. Check available disk space (`df -h`) for long lectures; retained videos may be large.
-4. If the CLI is missing, install with `uv tool install .` from the repository root. This skill is stored at `skills/lecture-slides/SKILL.md`; resolve symlinks first, then go two directories above its directory to find the repo. Read the repo's `README.md` for full setup and usage.
+1. Check `command -v lecture-slides` and `lecture-slides --help`. If missing, run `uv tool install .` from the repo root.
+2. Use the user's chosen parent directory, otherwise `~/workspace`. Quote URLs and paths. Check `df -h` for long lectures; video temporarily uses disk space during decoding.
+3. **Use LLM judgement to choose `--slug`**, rather than merely copying the title. Include the concrete subject, product/entity, or problem the user would search for. Prefer the user's own search vocabulary; ask if the topic is ambiguous instead of inventing names. Add useful context, omit filler such as "lecture" and "introduction", and keep it short. Slugs use lowercase letters/digits separated by hyphens (max 100 characters).
+4. For the Stanford lecture the user thinks of as "grok bot", use `grok-bot-always-on-agents`, not just `always-on-agents-stanford-cs146s`. This is a search hint supplied by the user, not a claim inferred from the title.
+5. `-o` is a **parent** directory; `--slug` names the subfolder. Without `--slug`, the CLI falls back to a cleaned title plus video ID (or local filename stem). Do not overwrite completed slides or rename existing lecture folders without asking.
 
-## Download slides and transcript together
-
-```bash
-lecture-slides 'https://www.youtube.com/watch?v=VIDEO_ID' -o "$HOME/workspace"
-```
-
-`-o` selects a **parent**, not the final output folder. URL output goes in `PARENT/Video title [VIDEO_ID]/`; titles are sanitized and truncated for filesystem safety. Local video input goes in `PARENT/filename-stem/`.
-
-Outputs:
-
-- `slide-0001_HH-MM-SS.mmm.png`: native-resolution, lossless screenshots; no upscaling.
-- `slides.json`: image filenames, actual captured-frame timestamps, stable-candidate start times, dimensions, and detection settings.
-- `transcript.txt`: readable timestamped captions, if available.
-- `transcript.json`: timed text segments, selected language, and automatic-caption flag.
-- `video/`: downloaded video, metadata, and original JSON3 captions when available.
-
-English is the default transcript language. Use `--language nl` (or another code) when requested. Human captions are preferred over automatic captions, including regional language variants. Automatic tracks may be YouTube translations. Local inputs produce slides only; no audio transcription is performed.
-
-## Presenter picture-in-picture
-
-Presenter motion can cause both duplicate images and missed slides. Mask the actual overlay when its position is known:
+## Extract slides, transcript, and reader
 
 ```bash
-lecture-slides 'YOUTUBE_URL' -o "$HOME/workspace" --ignore bottom-right
-# Exact rectangle: x,y,width,height as fractions of the ORIGINAL video.
-lecture-slides 'YOUTUBE_URL' -o "$HOME/workspace" --ignore 0.88,0.68,0.12,0.32
+lecture-slides 'https://www.youtube.com/watch?v=VIDEO_ID' \
+  -o "$HOME/workspace" --slug 'topic-product-useful-context'
 ```
 
-Corner presets cover 30% of image width and height; prefer a tighter rectangle when that would otherwise hide slide content from detection. Repeat `--ignore` for multiple regions. There is **no automatic presenter detection**. Do not assume every lecture has the same layout.
+Outputs inside `PARENT/SLUG/`:
 
-Ignore masks change detection only: saved PNGs retain the presenter. `--crop 0,0,0.75,1` saves only the left 75%, without resizing. All coordinates refer to the original video, even with a crop. Covered slide pixels cannot be reconstructed.
+- `index.html`: self-contained lecture reader with sequenced thumbnails, expandable slide modal, linked transcript panel, and original-video link. No CDN or web app backend.
+- `slide-0001_HH-MM-SS.mmm.png`: lossless screenshots at native resolution; no upscaling.
+- `slides.json`: captured-frame times, stable-candidate start times, dimensions, settings, and source URL.
+- `lecture.json`: compact source title/ID/link/resolution metadata for URL inputs.
+- `transcript.txt` and `transcript.json`: timestamped text and structured segments, if retrieval succeeds.
 
-If needed, use `--preview` to save a first-frame `preview.png` and inspect it with the image-reading tool. For URLs this downloads the full video and captions first, not merely a thumbnail. If the first frame doesn't show the lecture layout, inspect a later saved frame. Reuse `video/VIDEO_ID.ext` as a local input for subsequent extraction rather than downloading again.
+Downloaded video and raw download intermediates are **temporary by default**, cleaned on success, ordinary errors, and Ctrl+C. Never promise cleanup after a hard kill or host crash. `--keep-video` explicitly retains downloaded media under `video/`; use only when requested or when the user agrees it is useful for repeated tuning. **Local input videos are never deleted.** Existing videos retained by older versions need separate, explicit cleanup; do not delete arbitrary media directories.
 
-## Tune and rerun
+## Presenter overlays and tuning
 
 ```bash
-lecture-slides '/path/to/video.mp4' -o "$HOME/workspace/refined" \
-  --ignore 0.88,0.68,0.12,0.32 --interval 0.5 --settle 1
+lecture-slides 'YOUTUBE_URL' -o "$HOME/workspace" --slug 'useful-topic' \
+  --ignore bottom-right
+# Tight rectangle: x,y,width,height in original-video fractions.
+lecture-slides 'YOUTUBE_URL' -o "$HOME/workspace" --slug 'useful-topic' \
+  --ignore 0.88,0.68,0.12,0.32
 ```
 
-Existing slide results are protected from overwrite. Use a new parent directory for reruns; never delete prior output without permission. Local reruns create a filename-stem folder and do not fetch a transcript. Original captions remain in the original URL output folder.
+Presenter motion can cause missed slides and duplicates. Inspect the actual layout; there is no automatic presenter detector. Corner presets cover 30% of width and height, so prefer tighter masks when they would otherwise hide slide changes. Repeat `--ignore` for multiple regions.
 
-- Defaults: sample every 1 second; require 2 seconds of stability; count 1.5% changed area as a new slide.
-- Brief slides: lower `--interval` and `--settle`.
-- Small bullet builds: try `--change 0.005 --stability 0.001`.
-- Noisy recordings: try `--stability 0.008`; it must remain below `--change`.
-- This is visual change detection, not semantic slide recognition: title cards, transitions, and talking heads can be retained; brief slides or small edits can be missed.
+Masks affect detection only; the PNG still includes the presenter. Use `--crop 0,0,0.75,1` only when the user wants cropped output. Coordinates always refer to the original frame. Hidden pixels cannot be recovered.
 
-## Verify before reporting success
+`--preview` saves a first-frame image. URL preview still downloads the whole video, but that video is then deleted unless `--keep-video` was requested. Inspect a later output screenshot if the first frame doesn't show the lecture layout.
 
-1. Inspect `slides.json`: slide count, dimensions, timestamps, settings, and filenames. Confirm referenced PNGs exist.
-2. Open several screenshots from the start, middle, and end. Check readability, presenter position, duplicates, missed beginnings, and unwanted crops. Do not claim every slide was checked if only samples were viewed.
-3. Check that `transcript.txt` AND `transcript.json` actually exist and contain text. A successful command exit does **not** guarantee a transcript.
-4. Report the exact output folder, slide count/resolution, caption status, and any sampling limitations.
+Defaults: 1-second sampling, 2-second stability, 1.5% changed area. Brief slides: lower `--interval` and `--settle`. Small bullet builds: `--change 0.005 --stability 0.001`. Noisy recordings: try `--stability 0.008`; stability must remain below change. This is visual change detection, not semantic slide recognition.
 
-Caption absence, unsupported format, or HTTP errors are nonfatal: slides still save. YouTube HTTP 429 means rate limiting; report the missing transcript accurately. Do not repeatedly retry or redownload a large video to chase captions. Do not promise speech-to-text fallback. Only use `--cookies-from-browser firefox` (or another browser) with explicit user approval because it accesses an authenticated session. Never print cookies or tokens.
+For repeated extraction, use a new parent directory and a local input only if one was explicitly retained. Do not redownload a large video merely to rebuild the reader or obtain a transcript.
 
-## Headless viewing
+## Transcripts: YouTube, then Supadata
 
-Offer copying the folder over SCP/SFTP or an SSH-forwarded local web server. For browsing, bind on the headless device to loopback, not all interfaces:
+English is the default; use `--language nl` or another requested code. Human YouTube captions are preferred over automatic captions, including regional variants. If captions fail or are absent, the tool can use Supadata through `SUPADATA_API_KEY` in the process environment. Never put the key in a command argument, repo, HTML, logs, or chat. Do not invent credentials or silently install an MCP server.
+
+If Supadata is available as an MCP tool instead, request **timestamped** segments, not one plain-text transcript. Save the result in the normalized `transcript.json` format below and write timestamped `transcript.txt`, then rebuild the viewer. The standalone CLI uses the API, not the harness's MCP connection. Preserve provider/language metadata, and do not label Supadata output as human-authored unless its response establishes that.
+
+```json
+{"provider":"supadata","language":"en","segments":[{"start_seconds":0,"end_seconds":3.2,"text":"Welcome"}]}
+```
+
+Supadata's documented offset/duration units must be converted to seconds. The package's `lecture_slides.transcripts` helpers handle API normalization and file export; prefer those to a second converter. Follow the documented transcript mode and don't silently opt into paid AI transcription when only existing captions were authorized. If neither provider succeeds, report that explicitly; a zero exit code does not guarantee a transcript. Never repeatedly hammer YouTube after HTTP 429.
+
+## Existing lecture / reader refresh
 
 ```bash
-python3 -m http.server 8000 --bind 127.0.0.1 --directory "$HOME/workspace"
+lecture-slides --build-viewer '/absolute/path/to/existing/lecture'
 ```
 
-On the user's computer:
+This reads the existing `slides.json`, attempts the configured transcript fallback if needed, and rebuilds `index.html` **without downloading or decoding video**. Preserve existing images and folder names. If choosing a masked variant, make sure the manifest passed to the reader references those images, not the earlier unmasked run. Do not fabricate transcript data to demonstrate synchronization.
 
-```bash
-ssh -N -L 8000:127.0.0.1:8000 USER@HOST
-```
+## Verify and report
 
-Then open `http://localhost:8000`. Replace `USER@HOST` with the actual SSH target. Do not start a persistent server unless requested; keep it bound to loopback and explain how to stop it. Serve only the needed output directory when practical.
+- Check manifest counts, native image dimensions, ordered timestamps, and referenced image files.
+- Open screenshots from the beginning, middle, and end. Be precise about spot checks versus full coverage.
+- Confirm both transcript files contain actual timed text before claiming a transcript is available.
+- Open `index.html` in a browser: check thumbnails, source link, modal, Escape/focus behavior, and **left/down = previous, up/right = next**. Check slide selection seeks the transcript and user transcript scrolling updates the selected slide without oscillation or jump-back.
+- Confirm temporary videos are gone unless retention was explicitly requested. Do not delete user-supplied local inputs.
+- Report exact output folder, reader path, slide count/resolution, transcript provider/status, and cleanup status.
+
+## Remote viewing
+
+Use the `remote-viewing` skill when available: serve the **lecture folder containing index.html** on loopback, with an automatic **15-minute timeout**, and give the viewing device a fully populated SSH forwarding command based on this device's actual SSH details. Do not serve only `slides-masked/` when the reader and transcript live in the parent. Do not expose the server publicly or leave it running indefinitely. Local `file://` viewing also works after copying the full lecture folder.

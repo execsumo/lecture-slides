@@ -115,7 +115,7 @@ def test_download_requests_native_best_video(monkeypatch, tmp_path):
     monkeypatch.setattr(lecture_slides.yt_dlp, "YoutubeDL", Downloader)
     video, output = download("https://www.youtube.com/watch?v=test", tmp_path)
     assert video == tmp_path / "lecture.webm"
-    assert output == tmp_path / "A lecture [lecture]"
+    assert output == tmp_path / "a-lecture-lecture"
     assert seen["format"] == "bestvideo/best"
     assert seen["format_sort"][0] == "res"
     assert seen["noplaylist"] is True
