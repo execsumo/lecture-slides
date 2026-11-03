@@ -15,6 +15,17 @@ cd /home/herwin/projects/lecture-slides
 uv tool install .
 ```
 
+## Pi skill
+
+The usage skill lives in [`skills/lecture-slides/SKILL.md`](skills/lecture-slides/SKILL.md). Install it in Pi with a symlink so it stays in sync with this repo (run from the repo root):
+
+```bash
+mkdir -p "$HOME/.pi/agent/skills"
+ln -s "$(pwd)/skills/lecture-slides" "$HOME/.pi/agent/skills/lecture-slides"
+```
+
+If that destination already exists, inspect it rather than overwriting it. Run `/reload` in an active Pi session, then use `/skill:lecture-slides` or ask to extract slides from a lecture.
+
 ## Use
 
 ```bash
