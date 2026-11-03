@@ -24,6 +24,8 @@ lecture-slides 'https://www.youtube.com/watch?v=VIDEO_ID' \
 ```text
 ~/workspace/grok-bot-always-on-agents/
   index.html
+  lecture.md
+  lecture-aligned.json
   lecture.json
   slides.json
   slide-0001_00-00-02.000.png
@@ -39,7 +41,9 @@ Open `index.html` directly after copying the folder to your computer, or serve i
 - A sequenced thumbnail gallery and an almost-fullscreen slide modal.
 - Collapsible transcript panel beside the slides (below them on small screens).
 - Selecting a slide jumps to its transcript section; scrolling the transcript updates the selected slide. Synchronization uses observed stable-slide start times, not exact slide-onset detection.
-- **Left/down** goes to the previous slide; **up/right** goes to the next; Escape closes the modal.
+- **Left/up** goes to the previous slide; **down/right** goes to the next; Escape closes the modal.
+- The expanded viewer has a segmented, time-weighted progress bar: a slide discussed for five minutes occupies more space than one shown for ten seconds. Position uses the selected slide's start time, not its ordinal number.
+- Transcript fragments are joined into complete sentences and readable paragraphs. Timestamps appear only on the first new sentence after a slide change (and at the beginning), not on every provider cue. A sentence already underway continues without an inserted timestamp.
 - A source-video link with the selected slide's capture timestamp.
 - Clear transcript-unavailable state if neither provider succeeds.
 
@@ -51,6 +55,12 @@ lecture-slides --build-viewer '/path/to/existing/lecture'
 
 The folder must contain `slides.json` and its referenced images. Existing slide PNGs are not overwritten. Existing valid transcripts are reused.
 
+### LLM-friendly companion
+
+Every extraction and reader rebuild also writes **`lecture.md`** and **`lecture-aligned.json`** beside the images. Markdown provides the lecture source, numbered slide image links, time windows, and associated transcript text; JSON provides the same ordered slide/paragraph associations for programmatic use. `lecture.json` remains compact source metadata, not the aligned export.
+
+The reader and companion use the same sentence alignment: speech belongs to the slide active when the sentence begins. Sentences crossing a slide change are kept whole rather than duplicated or cut. Brief slides with no new sentence have an explicit empty-section explanation. In-cue sentence times are estimated from character offsets, not word-level audio alignment. Raw `transcript.json` is preserved for precise provider-cue timestamps; no speech is summarized or rephrased. If captions lack punctuation, wrapping is approximate and timestamps are deferred rather than invented mid-sentence.
+
 ### Transcripts
 
 URL runs try YouTube captions first, preferring human captions to automatic ones. English is the default; choose another language with `--language nl` (or another language code). Automatic tracks can include YouTube translations.
@@ -59,7 +69,7 @@ If captions fail or are missing, **Supadata is the optional fallback**. Make `SU
 
 The API fallback explicitly uses `mode=native` (existing captions only), which costs one Supadata credit per request, including an unavailable-caption response. It never silently enables Supadata's per-minute AI generation. HTTP 206/202, empty content, and failed requests leave the reader usable without a transcript; no automatic retry loop runs. Supadata may return a different available language when the requested one is absent; the tool records it and warns. Only YouTube URLs are submitted, because Supadata file URLs force generation regardless of mode. See [Supadata transcript docs](https://docs.supadata.ai/get-transcript).
 
-`transcript.txt` contains lines like `[00:03:12.500] The next slide shows…`. `transcript.json` records provider, language, and timed segments with `start_seconds`, `end_seconds`, and `text`. Raw YouTube rolling captions are normalized to remove overlapping repeated words. The transcript is saved before slide extraction, so it survives a later extraction failure.
+After reader generation, `transcript.txt` contains readable paragraphs with timestamps only at slide-related sentence boundaries, matching the reader and `lecture.md`. `transcript.json` retains unchanged provider-cue text and timing. If extraction fails before reader generation, the text export may still be in its initial cue-by-cue form. `transcript.json` records provider, language, and timed segments with `start_seconds`, `end_seconds`, and `text`. Raw YouTube rolling captions are normalized to remove overlapping repeated words. The transcript is saved before slide extraction, so it survives a later extraction failure.
 
 Missing credentials, unavailable captions, unsupported formats, rate limits, and API errors are warnings, not reasons to discard slides. **A successful command does not guarantee a transcript.** Local inputs have no automatic transcript lookup; place a compatible timed transcript in an existing output folder and rebuild its reader. There is no local speech-to-text engine.
 

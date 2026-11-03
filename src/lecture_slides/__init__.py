@@ -289,7 +289,8 @@ def download(url, directory, cookie_browser=None, language="en", preview=False,
         if not path.is_file():
             raise ValueError("video download failed; see downloader warnings above")
         metadata = {"id": info["id"], "title": info.get("title"), "source": url,
-                    "width": info.get("width"), "height": info.get("height")}
+                    "width": info.get("width"), "height": info.get("height"),
+                    "duration": info.get("duration")}
         metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         if code:
             save_transcript(info, output, code, automatic)

@@ -14,13 +14,14 @@ playwright = pytest.importorskip("playwright.sync_api")
 
 def test_modal_and_bidirectional_sync(tmp_path):
     slides = []
+    starts = [0, 10, 40]
     for i in range(3):
         filename = f"slide-{i}.png"
         cv2.imwrite(str(tmp_path / filename), np.full((180, 320, 3), 80 + i * 60, dtype=np.uint8))
-        slides.append({"file": filename, "timestamp_seconds": i * 20 + 2, "stable_since_seconds": i * 20})
+        slides.append({"file": filename, "timestamp_seconds": starts[i] + 2, "stable_since_seconds": starts[i]})
     (tmp_path / "slides.json").write_text(json.dumps({"source": "https://www.youtube.com/watch?v=test123", "slides": slides}))
     (tmp_path / "transcript.json").write_text(json.dumps({"segments": [
-        {"start_seconds": i, "end_seconds": i + 1, "text": f"Transcript segment {i}. " * 4}
+        {"start_seconds": i, "end_seconds": i + 1, "text": f"This is readable sentence {i} with enough words to exercise transcript scrolling."}
         for i in range(60)
     ]}))
     build_viewer(tmp_path)
@@ -35,18 +36,26 @@ def test_modal_and_bidirectional_sync(tmp_path):
         page.locator(".card").nth(1).click()
         assert page.locator("#viewer").evaluate("e => e.open")
         assert "Slide 2 of 3" in page.locator("#modal-title").inner_text()
-        assert page.locator(".segment[aria-current=true] time").inner_text() == "00:00:20"
-        assert page.locator("#modal-source").get_attribute("href").endswith("&t=22s")
+        assert page.locator(".segment[aria-current=true] time").inner_text() == "00:00:10"
+        assert page.locator("#modal-source").get_attribute("href").endswith("&t=12s")
         assert page.locator("#large").evaluate("e => e.complete && e.naturalWidth") == 320
+        page.locator('.segment[aria-current=true]').click()
+        page.keyboard.press('ArrowUp')
+        assert 'Slide 1 of 3' in page.locator('#modal-title').inner_text()
+        page.keyboard.press('ArrowDown')
+        assert 'Slide 2 of 3' in page.locator('#modal-title').inner_text()
+        assert page.locator('.segment time').count() == 3
+        assert page.locator('#timeline span').evaluate_all('(spans)=>spans.map(s=>Number(s.style.flexGrow))') == [10, 30, 20]
+        assert float(page.locator('#timeline').get_attribute('aria-valuenow')) == pytest.approx(100 / 6)
         page.evaluate("""() => {
-            const reading=document.getElementById('reading'), line=document.querySelectorAll('.segment')[45];
+            const reading=document.getElementById('reading'), line=[...document.querySelectorAll('.segment')].find(e=>Number(e.dataset.start)>=45);
             reading.scrollTop += line.getBoundingClientRect().top-reading.getBoundingClientRect().top-8;
         }""")
         page.wait_for_function("document.getElementById('modal-title').textContent.includes('Slide 3 of 3')")
         top = page.locator("#reading").evaluate("e => e.scrollTop")
         page.wait_for_timeout(150)
         assert abs(page.locator("#reading").evaluate("e => e.scrollTop") - top) < 1
-        for key, expected in [("ArrowLeft", 2), ("ArrowDown", 1), ("ArrowUp", 2), ("ArrowRight", 3)]:
+        for key, expected in [("ArrowLeft", 2), ("ArrowUp", 1), ("ArrowDown", 2), ("ArrowRight", 3)]:
             page.keyboard.press(key)
             assert f"Slide {expected} of 3" in page.locator("#modal-title").inner_text()
         before = page.locator(".image-stage").bounding_box()["width"]

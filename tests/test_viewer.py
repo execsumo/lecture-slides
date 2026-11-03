@@ -50,7 +50,8 @@ def test_untrusted_title_transcript_and_filename_cannot_terminate_script(tmp_pat
     assert f"<title>{html.escape(attack)}</title>" in document
     assert attack not in document
     assert document.count("</script>") == 2
-    assert data["segments"][0]["text"] == attack
+    assert data["segments"][0]["text"] == " ".join(attack.split())
+    assert json.loads((tmp_path / "transcript.json").read_text())["segments"][0]["text"] == attack
     assert data["slides"][0]["file"] == filename
     assert data["slides"][0]["url"].startswith("./sub/%3C/script%3E")
     assert "%23%3F%25%22" in data["slides"][0]["url"]
@@ -115,13 +116,13 @@ def test_subpaths_are_encoded_and_order_is_chronological(tmp_path):
     manifest(tmp_path, [slide("masked/slide #2.png", 22, 20),
                         slide("masked/slide 你好.png", 13, 10)])
     (tmp_path / "transcript.json").write_text(json.dumps({"segments": [
-        {"start_seconds": 20, "end_seconds": 25, "text": "Second"},
-        {"start_seconds": 10, "end_seconds": 15, "text": "First"}]}))
+        {"start_seconds": 20, "end_seconds": 25, "text": "Second."},
+        {"start_seconds": 10, "end_seconds": 15, "text": "First."}]}))
     _, data = read_viewer(tmp_path)
     assert [s["stable_since_seconds"] for s in data["slides"]] == [10, 20]
     assert data["slides"][0]["timestamp_seconds"] == 13
     assert data["slides"][1]["url"] == "./masked/slide%20%232.png"
-    assert [s["text"] for s in data["segments"]] == ["First", "Second"]
+    assert [s["text"] for s in data["segments"]] == ["First.", "Second."]
 
 
 @pytest.mark.parametrize("value", [-1, float("inf"), float("nan"), "10", True])
@@ -136,6 +137,26 @@ def test_empty_slides(tmp_path):
     document, data = read_viewer(tmp_path)
     assert data["slides"] == []
     assert "No slides available" in document
+
+
+def test_duration_and_llm_companions(tmp_path):
+    manifest(tmp_path, [slide("masked/first.png", 2, 0), slide("masked/next.png", 12, 10)],
+             source="https://youtu.be/example")
+    (tmp_path / "lecture.json").write_text(json.dumps({"duration": 90}))
+    raw = json.dumps({"segments": [
+        {"start_seconds": 0, "end_seconds": 11, "text": "An opening sentence."},
+        {"start_seconds": 11, "end_seconds": 15, "text": "The next slide's explanation."},
+    ]})
+    (tmp_path / "transcript.json").write_text(raw)
+    _, data = read_viewer(tmp_path)
+    assert data["duration"] == 90
+    aligned = json.loads((tmp_path / "lecture-aligned.json").read_text())
+    assert aligned["slides"][1]["end_seconds"] == 90
+    assert aligned["slides"][1]["image"] == "./masked/next.png"
+    assert aligned["slides"][1]["paragraphs"][0]["text"] == "The next slide's explanation."
+    assert "![Slide 2](./masked/next.png)" in (tmp_path / "lecture.md").read_text()
+    assert (tmp_path / "transcript.json").read_text() == raw
+    assert "[00:00:11] The next slide's explanation." in (tmp_path / "transcript.txt").read_text()
 
 
 def test_missing_manifest_does_not_create_viewer(tmp_path):
