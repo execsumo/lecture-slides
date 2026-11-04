@@ -1,6 +1,6 @@
 {
   "name": "lecture-slides",
-  "version": "0.3.0",
+  "version": "0.1.0",
   "description": "Agent skill for extracting lecture slides and transcripts into a synchronized reader. Requires the lecture-slides CLI (uv tool install git+https://github.com/execsumo/lecture-slides).",
   "keywords": ["pi-package", "agent-skill"],
   "license": "MIT",

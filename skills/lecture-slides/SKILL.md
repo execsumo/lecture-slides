@@ -2,7 +2,7 @@
 name: lecture-slides
 license: MIT
 description: Download lecture videos, extract timestamped native-resolution slide screenshots, retrieve transcripts with YouTube captions or Supadata fallback, and build a polished synchronized slide/transcript reader. Use when saving lecture slides, handling presenter overlays, naming lecture folders intuitively, or viewing lecture materials remotely.
-compatibility: Python 3.11+, uv, lecture-slides; Node 22+ or Deno recommended for YouTube; optional Supadata API key or MCP for transcript fallback.
+compatibility: Python 3.11+, uv, lecture-slides; ffmpeg required for YouTube downloads; Node 22+ or Deno recommended for YouTube; optional Supadata API key or MCP for transcript fallback.
 ---
 
 # Lecture slides
@@ -14,8 +14,7 @@ Use the installed `lecture-slides` CLI, not a new downloader or transcriber. Run
 1. Check `command -v lecture-slides` and `lecture-slides --help`. If missing, install it with `uv tool install git+https://github.com/execsumo/lecture-slides` (requires uv and Python 3.11+).
 2. Use the user's chosen parent directory, otherwise the CLI default, `~/Downloads`. Quote URLs and paths. Check `df -h` for long lectures; video temporarily uses disk space during decoding.
 3. **Use LLM judgement to choose `--slug`**, rather than merely copying the title. Include the concrete subject, product/entity, or problem the user would search for. Prefer the user's own search vocabulary; ask if the topic is ambiguous instead of inventing names. Add useful context, omit filler such as "lecture" and "introduction", and keep it short. Slugs use lowercase letters/digits separated by hyphens (max 100 characters).
-4. For the Stanford lecture the user thinks of as "grok bot", use `grok-bot-always-on-agents`, not just `always-on-agents-stanford-cs146s`. This is a search hint supplied by the user, not a claim inferred from the title.
-5. `-o` is a **parent** directory; `--slug` names the subfolder. Without `--slug`, the CLI falls back to a cleaned title plus video ID (or local filename stem). Do not overwrite completed slides or rename existing lecture folders without asking.
+4. `-o` is a **parent** directory; `--slug` names the subfolder. Without `--slug`, the CLI falls back to a cleaned title plus video ID (or local filename stem). Do not overwrite completed slides or rename existing lecture folders without asking.
 
 ## Extract slides, transcript, and reader
 

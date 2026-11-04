@@ -1,10 +1,19 @@
 # lecture-slides
 
-Turn a YouTube lecture into a **native-resolution slide gallery with a synchronized transcript**. Downloads the highest-resolution available video, extracts stable slides as lossless PNGs, and creates a self-contained `index.html` reader. Also accepts local videos.
+## What does this do?
 
-## Install
+Turn a YouTube lecture — or a video file on your computer — into a folder of slide images at the video's native resolution, plus a self-contained `index.html` reader that keeps the slides and the transcript in sync. No account, no backend, no upload: you open the reader in any browser.
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). YouTube works best with Node 22+ or Deno available.
+## Why use it?
+
+- **Revisit a lecture visually.** Every stable slide is saved as a lossless PNG, in order, with timestamps — no more scrubbing through video or taking screenshots by hand.
+- **Read along with the transcript.** The reader jumps between a slide and the speech that goes with it, and the transcript is written in complete sentences, not caption fragments.
+- **Hand a lecture to an AI agent.** Every run also writes `lecture.md` and `lecture-aligned.json`: the slides in order with their matching speech, ready to read or analyze.
+- **Keep only what matters.** The downloaded video is temporary by default and cleaned up afterwards; a local input file is never deleted.
+
+## Setup
+
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), and ffmpeg. ffmpeg is needed to merge the highest-quality YouTube video and audio streams — without it, YouTube downloads may fail or fall back to lower quality. For YouTube, Node 22+ or Deno is also recommended (yt-dlp uses it for YouTube's JavaScript challenges).
 
 ```bash
 uv tool install git+https://github.com/execsumo/lecture-slides
@@ -16,14 +25,14 @@ Or from a clone: `git clone https://github.com/execsumo/lecture-slides && cd lec
 
 ```bash
 lecture-slides 'https://www.youtube.com/watch?v=VIDEO_ID' \
-  --slug grok-bot-always-on-agents \
+  --slug how-neural-networks-learn \
   --ignore 0.88,0.68,0.12,0.32
 ```
 
 `--output` is the parent directory (default: `~/Downloads`, created if missing). `--slug` is a human/agent-chosen, search-friendly folder name, not necessarily a restatement of the title. Include the subject or product you would actually search for. It accepts 1–100 lowercase letters/digits separated by hyphens. Without it, the CLI uses a cleaned title plus video ID; local inputs use a cleaned filename stem. Existing slide output is protected against overwrite.
 
 ```text
-~/Downloads/grok-bot-always-on-agents/
+~/Downloads/how-neural-networks-learn/
   index.html
   lecture.md
   lecture-aligned.json
