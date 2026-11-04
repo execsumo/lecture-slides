@@ -38,10 +38,11 @@ lecture-slides 'https://www.youtube.com/watch?v=VIDEO_ID' \
 
 Open `index.html` directly after copying the folder to your computer, or serve it over an SSH-forwarded local HTTP server. The reader has no CDN dependency, fetch requests, or application backend.
 
-- A sequenced thumbnail gallery and an almost-fullscreen slide modal.
+- A full-window app layout: a header with the video title, source link and a **Light / System / Dark** toggle (remembered per browser); a collapsible left rail of sequenced thumbnails; a centre stage that fits the current slide to the available space without cropping; and a collapsible right transcript. Collapsing either side gives the slide more room. On narrow screens the side panels become drawers.
 - Collapsible transcript panel beside the slides (below them on small screens).
 - Selecting a slide jumps to its transcript section; scrolling the transcript updates the selected slide. Synchronization uses observed stable-slide start times, not exact slide-onset detection.
-- **Left/up** goes to the previous slide; **down/right** goes to the next; Escape closes the modal.
+- **Left/up** goes to the previous slide; **down/right** goes to the next; **Home/End** jump to the first/last; **[** and **]** toggle the slide list and transcript; Escape closes a mobile drawer. Clicking the progress bar jumps to that slide. The mouse wheel over the centre column also steps through slides (the side panels scroll normally).
+- The download button saves **`lecture-export.zip`** (also written beside `index.html` on every reader build): `lecture.md` (readable), `lecture.json` (machine-readable, with image references) and `slides/001.png…`. It is deliberately minimal for LLM hand-off, and omitted if any slide image is missing.
 - The expanded viewer has a segmented, time-weighted progress bar: a slide discussed for five minutes occupies more space than one shown for ten seconds. Position uses the selected slide's start time, not its ordinal number.
 - Transcript fragments are joined into complete sentences and readable paragraphs. Timestamps appear only on the first new sentence after a slide change (and at the beginning), not on every provider cue. A sentence already underway continues without an inserted timestamp.
 - A source-video link with the selected slide's capture timestamp.

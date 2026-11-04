@@ -25,7 +25,7 @@ lecture-slides 'https://www.youtube.com/watch?v=VIDEO_ID' \
 
 Outputs inside `PARENT/SLUG/`:
 
-- `index.html`: self-contained lecture reader with sequenced thumbnails, expandable slide modal, linked transcript panel, and original-video link. No CDN or web app backend.
+- `index.html`: self-contained lecture reader: header with title and light/system/dark toggle, collapsible thumbnail rail, best-fit slide stage with weighted progress bar, collapsible linked transcript, and original-video link. The download button saves `lecture-export.zip` (lecture.md, lecture.json, slides/). No CDN or web app backend.
 - `slide-0001_HH-MM-SS.mmm.png`: lossless screenshots at native resolution; no upscaling.
 - `slides.json`: captured-frame times, stable-candidate start times, dimensions, settings, and source URL.
 - `lecture.json`: compact source title/ID/link/resolution/duration metadata for URL inputs.
@@ -79,7 +79,7 @@ This reads the existing `slides.json`, attempts the configured transcript fallba
 - Check manifest counts, native image dimensions, ordered timestamps, and referenced image files.
 - Open screenshots from the beginning, middle, and end. Be precise about spot checks versus full coverage.
 - Confirm both transcript files contain actual timed text before claiming a transcript is available.
-- Open `index.html` in a browser: check thumbnails, source link, modal, Escape/focus behavior, and **left/up = previous, down/right = next**. Check slide selection seeks the transcript and user transcript scrolling updates the selected slide without oscillation or jump-back.
+- Open `index.html` in a browser: check the header theme toggle, collapsible side panels (`[` / `]`), thumbnails, source link, best-fit slide stage, and **left/up = previous, down/right = next**. Check slide selection seeks the transcript and user transcript scrolling updates the selected slide without oscillation or jump-back.
 - Verify the expanded-slide progress bar is weighted by elapsed lecture time and slide speaking windows, not equal-width slide counts. Transcript text should read in complete sentences/paragraphs, with timestamps only on the first new sentence after a slide transition. Mid-sentence transitions must not split speech. Sentence timing inside provider cues is approximate; preserve raw transcript.json.
 - Verify lecture.md and lecture-aligned.json exist, reference the actual slide image paths, retain all speech, and explain slides with no newly starting sentence. Cross-slide sentences belong to the slide active at sentence start.
 - Confirm temporary videos are gone unless retention was explicitly requested. Do not delete user-supplied local inputs.

@@ -163,3 +163,35 @@ def test_missing_manifest_does_not_create_viewer(tmp_path):
     with pytest.raises(FileNotFoundError):
         build_viewer(tmp_path)
     assert not (tmp_path / "index.html").exists()
+
+
+def test_export_zip_is_self_contained(tmp_path):
+    import zipfile
+    manifest(tmp_path, [slide("masked/first.png", 2, 0), slide("masked/next.png", 12, 10)])
+    for name in ("first", "next"):
+        (tmp_path / "masked").mkdir(exist_ok=True)
+        (tmp_path / "masked" / f"{name}.png").write_bytes(b"png-" + name.encode())
+    (tmp_path / "transcript.json").write_text(json.dumps({"segments": [
+        {"start_seconds": 0, "end_seconds": 11, "text": "An opening sentence."},
+        {"start_seconds": 11, "end_seconds": 15, "text": "The next slide."}]}))
+    document, _ = read_viewer(tmp_path, title="My Talk!")
+    assert 'href="./lecture-export.zip" download="my-talk.zip"' in document
+    with zipfile.ZipFile(tmp_path / "lecture-export.zip") as archive:
+        names = sorted(archive.namelist())
+        assert names == ["my-talk/lecture.json", "my-talk/lecture.md",
+                         "my-talk/slides/001.png", "my-talk/slides/002.png"]
+        assert archive.read("my-talk/slides/002.png") == b"png-next"
+        markdown = archive.read("my-talk/lecture.md").decode()
+        assert "![Slide 2](./slides/002.png)" in markdown and "masked" not in markdown
+        data = json.loads(archive.read("my-talk/lecture.json"))
+        assert [s["image"] for s in data["slides"]] == ["./slides/001.png", "./slides/002.png"]
+        assert data["slides"][1]["paragraphs"][0]["text"] == "The next slide."
+        assert "(transcript.json)" not in markdown
+    assert (tmp_path / "masked" / "first.png").read_bytes() == b"png-first"
+
+
+def test_missing_image_omits_export_without_failing(tmp_path):
+    manifest(tmp_path, [slide("gone.png")])
+    (tmp_path / "lecture-export.zip").write_bytes(b"stale")
+    _, data = read_viewer(tmp_path)
+    assert data["export"] is False and not (tmp_path / "lecture-export.zip").exists()
