@@ -128,7 +128,7 @@ YouTube's available streams, access restrictions, and rate limits determine what
 
 ## Agent skill
 
-[`skills/lecture-slides/SKILL.md`](skills/lecture-slides/SKILL.md) follows the open [Agent Skills](https://agentskills.io) format, so the same folder works in Pi, Claude Code and Codex. The skill drives the CLI, so **install the CLI first** (above). It uses LLM judgement to choose searchable slugs, handles the Supadata fallback, verifies the reader, and, if you also have a `remote-viewing` skill, serves the result over an SSH tunnel with a 15-minute timeout (optional).
+[`skills/lecture-slides/SKILL.md`](skills/lecture-slides/SKILL.md) follows the open [Agent Skills](https://agentskills.io) format, so the same folder works in Pi, Claude Code and Codex. The skill drives the CLI, so **install the CLI first** (above). It uses LLM judgement to choose searchable slugs, handles the Supadata fallback, and verifies the reader.
 
 Clone once, then link the skill folder into your agent's skills directory (use `cp -r` instead of `ln -s` if you prefer a copy):
 

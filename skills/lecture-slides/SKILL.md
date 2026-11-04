@@ -1,7 +1,7 @@
 ---
 name: lecture-slides
 license: MIT
-description: Download lecture videos, extract timestamped native-resolution slide screenshots, retrieve transcripts with YouTube captions or Supadata fallback, and build a polished synchronized slide/transcript reader. Use when saving lecture slides, handling presenter overlays, naming lecture folders intuitively, or viewing lecture materials remotely.
+description: Download lecture videos, extract timestamped native-resolution slide screenshots, retrieve transcripts with YouTube captions or Supadata fallback, and build a polished synchronized slide/transcript reader. Use when saving lecture slides, handling presenter overlays, or naming lecture folders intuitively.
 compatibility: Python 3.11+, uv, lecture-slides; ffmpeg required for YouTube downloads; Node 22+ or Deno recommended for YouTube; optional Supadata API key or MCP for transcript fallback.
 ---
 
@@ -84,7 +84,3 @@ This reads the existing `slides.json`, attempts the configured transcript fallba
 - Verify lecture.md and lecture-aligned.json exist, reference the actual slide image paths, retain all speech, and explain slides with no newly starting sentence. Cross-slide sentences belong to the slide active at sentence start.
 - Confirm temporary videos are gone unless retention was explicitly requested. Do not delete user-supplied local inputs.
 - Report exact output folder, reader path, slide count/resolution, transcript provider/status, and cleanup status.
-
-## Remote viewing
-
-If a `remote-viewing` skill is available, use it (otherwise do the same by hand): serve the **lecture folder containing index.html** on loopback, with an automatic **15-minute timeout**, and give the viewing device a fully populated SSH forwarding command based on this device's actual SSH details. Do not serve only `slides-masked/` when the reader and transcript live in the parent. Do not expose the server publicly or leave it running indefinitely. Local `file://` viewing also works after copying the full lecture folder.
