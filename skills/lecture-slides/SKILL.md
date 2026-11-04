@@ -1,17 +1,18 @@
 ---
 name: lecture-slides
+license: MIT
 description: Download lecture videos, extract timestamped native-resolution slide screenshots, retrieve transcripts with YouTube captions or Supadata fallback, and build a polished synchronized slide/transcript reader. Use when saving lecture slides, handling presenter overlays, naming lecture folders intuitively, or viewing lecture materials remotely.
 compatibility: Python 3.11+, uv, lecture-slides; Node 22+ or Deno recommended for YouTube; optional Supadata API key or MCP for transcript fallback.
 ---
 
 # Lecture slides
 
-Use the installed `lecture-slides` CLI, not a new downloader or transcriber. Read the repo's `README.md` for full options. This skill lives at `skills/lecture-slides/SKILL.md`; resolve symlinks and go two levels above its directory to find the repo.
+Use the installed `lecture-slides` CLI, not a new downloader or transcriber. Run `lecture-slides --help` for all options; the full documentation is at https://github.com/execsumo/lecture-slides.
 
 ## Plan the output
 
-1. Check `command -v lecture-slides` and `lecture-slides --help`. If missing, run `uv tool install .` from the repo root.
-2. Use the user's chosen parent directory, otherwise `~/workspace`. Quote URLs and paths. Check `df -h` for long lectures; video temporarily uses disk space during decoding.
+1. Check `command -v lecture-slides` and `lecture-slides --help`. If missing, install it with `uv tool install git+https://github.com/execsumo/lecture-slides` (requires uv and Python 3.11+).
+2. Use the user's chosen parent directory, otherwise the CLI default, `~/Downloads`. Quote URLs and paths. Check `df -h` for long lectures; video temporarily uses disk space during decoding.
 3. **Use LLM judgement to choose `--slug`**, rather than merely copying the title. Include the concrete subject, product/entity, or problem the user would search for. Prefer the user's own search vocabulary; ask if the topic is ambiguous instead of inventing names. Add useful context, omit filler such as "lecture" and "introduction", and keep it short. Slugs use lowercase letters/digits separated by hyphens (max 100 characters).
 4. For the Stanford lecture the user thinks of as "grok bot", use `grok-bot-always-on-agents`, not just `always-on-agents-stanford-cs146s`. This is a search hint supplied by the user, not a claim inferred from the title.
 5. `-o` is a **parent** directory; `--slug` names the subfolder. Without `--slug`, the CLI falls back to a cleaned title plus video ID (or local filename stem). Do not overwrite completed slides or rename existing lecture folders without asking.
@@ -20,7 +21,7 @@ Use the installed `lecture-slides` CLI, not a new downloader or transcriber. Rea
 
 ```bash
 lecture-slides 'https://www.youtube.com/watch?v=VIDEO_ID' \
-  -o "$HOME/workspace" --slug 'topic-product-useful-context'
+  --slug 'topic-product-useful-context'
 ```
 
 Outputs inside `PARENT/SLUG/`:
@@ -37,10 +38,10 @@ Downloaded video and raw download intermediates are **temporary by default**, cl
 ## Presenter overlays and tuning
 
 ```bash
-lecture-slides 'YOUTUBE_URL' -o "$HOME/workspace" --slug 'useful-topic' \
+lecture-slides 'YOUTUBE_URL' --slug 'useful-topic' \
   --ignore bottom-right
 # Tight rectangle: x,y,width,height in original-video fractions.
-lecture-slides 'YOUTUBE_URL' -o "$HOME/workspace" --slug 'useful-topic' \
+lecture-slides 'YOUTUBE_URL' --slug 'useful-topic' \
   --ignore 0.88,0.68,0.12,0.32
 ```
 
@@ -87,4 +88,4 @@ This reads the existing `slides.json`, attempts the configured transcript fallba
 
 ## Remote viewing
 
-Use the `remote-viewing` skill when available: serve the **lecture folder containing index.html** on loopback, with an automatic **15-minute timeout**, and give the viewing device a fully populated SSH forwarding command based on this device's actual SSH details. Do not serve only `slides-masked/` when the reader and transcript live in the parent. Do not expose the server publicly or leave it running indefinitely. Local `file://` viewing also works after copying the full lecture folder.
+If a `remote-viewing` skill is available, use it (otherwise do the same by hand): serve the **lecture folder containing index.html** on loopback, with an automatic **15-minute timeout**, and give the viewing device a fully populated SSH forwarding command based on this device's actual SSH details. Do not serve only `slides-masked/` when the reader and transcript live in the parent. Do not expose the server publicly or leave it running indefinitely. Local `file://` viewing also works after copying the full lecture folder.

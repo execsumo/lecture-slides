@@ -3,6 +3,9 @@ name = "lecture-slides"
 version = "0.3.0"
 description = "Native-resolution lecture slides with a synchronized transcript reader"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
 dependencies = ["av>=14", "numpy>=2", "opencv-python-headless>=4.10", "yt-dlp[default]>=2025.1.1"]
 
 [project.scripts]

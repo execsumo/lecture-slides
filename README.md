@@ -7,22 +7,23 @@ Turn a YouTube lecture into a **native-resolution slide gallery with a synchroni
 Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). YouTube works best with Node 22+ or Deno available.
 
 ```bash
-cd /home/herwin/projects/lecture-slides
-uv tool install .
+uv tool install git+https://github.com/execsumo/lecture-slides
 ```
+
+Or from a clone: `git clone https://github.com/execsumo/lecture-slides && cd lecture-slides && uv tool install .`. Add `--force` to upgrade. Then install the agent skill (below) if you want an AI agent to run it for you.
 
 ## Use
 
 ```bash
 lecture-slides 'https://www.youtube.com/watch?v=VIDEO_ID' \
-  -o ~/workspace --slug grok-bot-always-on-agents \
+  --slug grok-bot-always-on-agents \
   --ignore 0.88,0.68,0.12,0.32
 ```
 
 `--output` is the parent directory (default: `~/Downloads`, created if missing). `--slug` is a human/agent-chosen, search-friendly folder name, not necessarily a restatement of the title. Include the subject or product you would actually search for. It accepts 1–100 lowercase letters/digits separated by hyphens. Without it, the CLI uses a cleaned title plus video ID; local inputs use a cleaned filename stem. Existing slide output is protected against overwrite.
 
 ```text
-~/workspace/grok-bot-always-on-agents/
+~/Downloads/grok-bot-always-on-agents/
   index.html
   lecture.md
   lecture-aligned.json
@@ -86,7 +87,7 @@ An abrupt hard kill or host crash can bypass cleanup. Old outputs from versions 
 
 ```bash
 # Corner preset:
-lecture-slides 'YOUTUBE_URL' -o ~/workspace --slug useful-topic --ignore bottom-right
+lecture-slides 'YOUTUBE_URL' --slug useful-topic --ignore bottom-right
 
 # Local video, exact presenter rectangle:
 lecture-slides ./lecture.mp4 -o ./slides --ignore 0.78,0.65,0.22,0.35
@@ -116,16 +117,24 @@ Filename timestamps come from actual decoded frames. `slides.json` also stores `
 
 YouTube's available streams, access restrictions, and rate limits determine what can be downloaded. Only use content you have permission to access. Browser cookies require explicit opt-in (`--cookies-from-browser firefox`); they use your authenticated session.
 
-## Pi skill
+## Agent skill
 
-The usage skill is [`skills/lecture-slides/SKILL.md`](skills/lecture-slides/SKILL.md). From the repo root:
+[`skills/lecture-slides/SKILL.md`](skills/lecture-slides/SKILL.md) follows the open [Agent Skills](https://agentskills.io) format, so the same folder works in Pi, Claude Code and Codex. The skill drives the CLI, so **install the CLI first** (above). It uses LLM judgement to choose searchable slugs, handles the Supadata fallback, verifies the reader, and, if you also have a `remote-viewing` skill, serves the result over an SSH tunnel with a 15-minute timeout (optional).
+
+Clone once, then link the skill folder into your agent's skills directory (use `cp -r` instead of `ln -s` if you prefer a copy):
 
 ```bash
-mkdir -p "$HOME/.pi/agent/skills"
-ln -s "$(pwd)/skills/lecture-slides" "$HOME/.pi/agent/skills/lecture-slides"
+git clone https://github.com/execsumo/lecture-slides ~/.local/share/lecture-slides
+SKILL=~/.local/share/lecture-slides/skills/lecture-slides
 ```
 
-Inspect an existing destination instead of overwriting it. Run `/reload`, then `/skill:lecture-slides`. The skill uses LLM judgement to supply searchable slugs, handles Supadata fallback, verifies reader output, and uses the `remote-viewing` skill for populated SSH commands and a 15-minute server timeout.
+| Agent | Install | Use |
+|---|---|---|
+| **Pi** | `pi install git:github.com/execsumo/lecture-slides` (or `mkdir -p ~/.pi/agent/skills && ln -s "$SKILL" ~/.pi/agent/skills/`) | `/reload`, then `/skill:lecture-slides` |
+| **Claude Code** | `mkdir -p ~/.claude/skills && ln -s "$SKILL" ~/.claude/skills/` (per project: `.claude/skills/`) | Restart Claude Code; ask it to save a lecture's slides, or run `/lecture-slides` |
+| **Codex** | `mkdir -p ~/.agents/skills && ln -s "$SKILL" ~/.agents/skills/` (per project: `.agents/skills/`; older Codex versions read `~/.codex/skills/`) | Restart Codex; ask for lecture slides, or type `$lecture-slides` |
+
+`~/.agents/skills/` is also read by Pi. Check an existing destination before linking so you don't overwrite another skill. To update, `git -C ~/.local/share/lecture-slides pull` and `uv tool install --force git+https://github.com/execsumo/lecture-slides`.
 
 ## Development
 
