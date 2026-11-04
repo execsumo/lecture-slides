@@ -302,7 +302,7 @@ def download(url, directory, cookie_browser=None, language="en", preview=False,
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", nargs="?", help="YouTube URL or local video path")
-    parser.add_argument("-o", "--output", type=Path, help="parent directory; results go in a lecture-slug subfolder")
+    parser.add_argument("-o", "--output", type=Path, default=Path("~/Downloads"), help="parent directory; results go in a lecture-slug subfolder (default: ~/Downloads)")
     parser.add_argument("--slug", type=slug_value, help="human/agent-chosen search-friendly folder name, e.g. grok-bot-always-on-agents")
     parser.add_argument("--keep-video", action="store_true", help="retain downloaded video; otherwise temporary video is deleted, including on failure")
     parser.add_argument("--build-viewer", type=Path, metavar="FOLDER", help="build/rebuild index.html for existing slides, without downloading video")
@@ -318,8 +318,9 @@ def main():
     args = parser.parse_args()
     if args.stability >= args.change:
         parser.error("--stability must be less than --change")
-    if not args.build_viewer and (not args.source or args.output is None):
-        parser.error("provide SOURCE and --output, or use --build-viewer FOLDER")
+    if not args.build_viewer and not args.source:
+        parser.error("provide SOURCE, or use --build-viewer FOLDER")
+    args.output = args.output.expanduser()
     try:
         if args.build_viewer:
             output = args.build_viewer.expanduser().resolve()

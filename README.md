@@ -19,7 +19,7 @@ lecture-slides 'https://www.youtube.com/watch?v=VIDEO_ID' \
   --ignore 0.88,0.68,0.12,0.32
 ```
 
-`--output` is the parent directory. `--slug` is a human/agent-chosen, search-friendly folder name, not necessarily a restatement of the title. Include the subject or product you would actually search for. It accepts 1–100 lowercase letters/digits separated by hyphens. Without it, the CLI uses a cleaned title plus video ID; local inputs use a cleaned filename stem. Existing slide output is protected against overwrite.
+`--output` is the parent directory (default: `~/Downloads`, created if missing). `--slug` is a human/agent-chosen, search-friendly folder name, not necessarily a restatement of the title. Include the subject or product you would actually search for. It accepts 1–100 lowercase letters/digits separated by hyphens. Without it, the CLI uses a cleaned title plus video ID; local inputs use a cleaned filename stem. Existing slide output is protected against overwrite.
 
 ```text
 ~/workspace/grok-bot-always-on-agents/

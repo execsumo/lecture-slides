@@ -100,3 +100,20 @@ def test_build_viewer_never_downloads_video(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "argv", ["lecture-slides", "--build-viewer", str(tmp_path)])
     lecture_slides.main()
     assert seen["source"] == "https://example.com/video"
+
+
+def test_output_defaults_to_downloads(monkeypatch, tmp_path):
+    import sys
+    from pathlib import Path
+    import lecture_slides
+    seen = {}
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(lecture_slides, "output_folder", lambda parent, stem, slug=None: seen.setdefault("parent", parent) or (_ for _ in ()).throw(SystemExit(0)))
+    video = tmp_path / "talk.mp4"
+    video.write_bytes(b"x")
+    monkeypatch.setattr(sys, "argv", ["lecture-slides", str(video)])
+    try:
+        lecture_slides.main()
+    except BaseException:
+        pass
+    assert seen["parent"] == tmp_path / "Downloads"
